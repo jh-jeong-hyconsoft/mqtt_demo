@@ -1,4 +1,5 @@
 import json
+import ssl
 import sys
 import unittest
 from pathlib import Path
@@ -9,6 +10,22 @@ if str(CLIENT_DIR) not in sys.path:
     sys.path.insert(0, str(CLIENT_DIR))
 
 import server_client
+
+
+class FakeMqttClient:
+    def __init__(self):
+        self.username_args = None
+        self.tls_args = None
+        self.tls_insecure = None
+
+    def username_pw_set(self, username, password=None):
+        self.username_args = (username, password)
+
+    def tls_set(self, **kwargs):
+        self.tls_args = kwargs
+
+    def tls_insecure_set(self, insecure):
+        self.tls_insecure = insecure
 
 
 class ServerClientTests(unittest.TestCase):
@@ -109,6 +126,43 @@ class ServerClientTests(unittest.TestCase):
         self.assertEqual(record["received_ts_ms"], 1234567890)
         self.assertEqual(record["payload"], {"msg_type": "state"})
         self.assertEqual(record["payload_raw"], '{"msg_type": "state"}')
+
+    def test_configure_mqtt_security_sets_password_and_tls(self):
+        client = FakeMqttClient()
+        ca_file = CLIENT_DIR.parent / "mqtt_broker" / "certs" / "ca.crt"
+
+        server_client.configure_mqtt_security(
+            client,
+            username="server",
+            password="1234",
+            ca_file=ca_file,
+        )
+
+        self.assertEqual(client.username_args, ("server", "1234"))
+        self.assertEqual(client.tls_args["ca_certs"], str(ca_file))
+        self.assertEqual(client.tls_args["cert_reqs"], ssl.CERT_REQUIRED)
+        self.assertEqual(client.tls_args["tls_version"], ssl.PROTOCOL_TLS_CLIENT)
+        self.assertFalse(client.tls_insecure)
+
+    def test_parser_defaults_to_tls_broker_settings(self):
+        parser = server_client.build_parser()
+
+        args = parser.parse_args(
+            [
+                "publish",
+                "--fleet-id",
+                "fleet-a",
+                "--device-id",
+                "robot-1",
+                "--payload",
+                "samples/command_payload_move_to.json",
+            ]
+        )
+
+        self.assertEqual(args.port, 8883)
+        self.assertEqual(args.username, "server")
+        self.assertEqual(args.password, "1234")
+        self.assertEqual(args.ca_file, str(server_client.DEFAULT_CA_FILE))
 
 
 if __name__ == "__main__":

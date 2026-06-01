@@ -1,10 +1,12 @@
 services:
-  mqtt-broker:
-    image: eclipse-mosquitto:2
-    container_name: docker_ws_mqtt_broker
+  mqtt_broker:
+    image: eclipse-mosquitto:2.0.11
+    container_name: mqtt_broker
     restart: unless-stopped
     ports:
-      - "${MQTT_PORT:-1883}:1883"
-      - "${MQTT_WS_PORT:-9001}:9001"
+      - "8883:8883"
     volumes:
-      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./config:/mosquitto/config
+      - ./certs:/mosquitto/certs
+      - ./data:/mosquitto/data
+      - ./log:/mosquitto/log

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import ssl
 import sys
 import threading
 import time
@@ -13,6 +14,7 @@ from jsonschema import Draft202012Validator
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_DIR = BASE_DIR / "config"
 DEFAULT_LOG_FILE = BASE_DIR / "logs" / "mqtt_messages.jsonl"
+DEFAULT_CA_FILE = BASE_DIR.parent / "mqtt_broker" / "certs" / "ca.crt"
 SCHEMA_VERSION = 0.3
 
 
@@ -168,6 +170,18 @@ def create_mqtt_client(client_id):
         return mqtt.Client(client_id=client_id)
 
 
+def configure_mqtt_security(client, username=None, password=None, ca_file=None, insecure=False):
+    if username is not None:
+        client.username_pw_set(username, password=password)
+
+    if ca_file:
+        ca_path = Path(ca_file)
+        if not ca_path.is_file():
+            raise FileNotFoundError(f"CA file not found: {ca_path}")
+        client.tls_set(ca_certs=str(ca_path), cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS_CLIENT)
+        client.tls_insecure_set(insecure)
+
+
 def connect_client(client, host, port, keepalive, timeout_s):
     connected = threading.Event()
     errors = []
@@ -209,6 +223,7 @@ def publish_command(args):
     publish_options = command_publish_options(topic_config)
     client_id = args.client_id or f"server-publisher-{uuid.uuid4()}"
     client = create_mqtt_client(client_id)
+    configure_mqtt_security(client, username=args.username, password=args.password, ca_file=args.ca_file, insecure=args.insecure)
 
     try:
         connect_client(client, args.host, args.port, args.keepalive, args.timeout)
@@ -238,6 +253,7 @@ def log_messages(args):
     log_file = Path(args.log_file)
     client_id = args.client_id or f"server-logger-{uuid.uuid4()}"
     client = create_mqtt_client(client_id)
+    configure_mqtt_security(client, username=args.username, password=args.password, ca_file=args.ca_file, insecure=args.insecure)
 
     def on_connect(mqtt_client, _userdata, _flags, reason_code, _properties=None):
         if not mqtt_success(reason_code):
@@ -297,10 +313,14 @@ def build_parser():
 
 def add_mqtt_args(parser):
     parser.add_argument("--host", default="localhost", help="MQTT broker host")
-    parser.add_argument("--port", type=int, default=1883, help="MQTT broker port")
+    parser.add_argument("--port", type=int, default=8883, help="MQTT broker port")
     parser.add_argument("--keepalive", type=int, default=60, help="MQTT keepalive seconds")
     parser.add_argument("--timeout", type=float, default=5.0, help="Connect/publish timeout seconds")
     parser.add_argument("--client-id", help="MQTT client ID; generated when omitted")
+    parser.add_argument("--username", default="server", help="MQTT username")
+    parser.add_argument("--password", default="1234", help="MQTT password")
+    parser.add_argument("--ca-file", default=str(DEFAULT_CA_FILE), help="CA certificate for TLS broker verification")
+    parser.add_argument("--insecure", action="store_true", help="Disable TLS hostname verification")
 
 
 def main(argv=None):

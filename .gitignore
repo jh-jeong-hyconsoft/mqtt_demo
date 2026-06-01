@@ -1,0 +1,30 @@
+# Codex / local assistant artifacts
+.serena/
+docs/superpowers/
+
+# MQTT broker secrets and runtime data
+mqtt_broker/certs/
+mqtt_broker/private/
+mqtt_broker/config/passwd
+mqtt_broker/data/
+mqtt_broker/log/
+
+# MQTT client runtime output
+mqtt_client/logs/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Test / tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environment files
+.env
+.env.*
