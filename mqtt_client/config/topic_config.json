@@ -1,0 +1,55 @@
+{
+  "outbound": [
+    {
+      "mqtt_topic": "robot/{fleet_id}/{device_id}/state",
+      "schema_key": "state",
+      "source_type": "composite",
+      "ros_topics": ["/scout_status", "/navsatfix"],
+      "sync_threshold_ms": 500,
+      "interval_ms": 1000,
+      "qos": 1,
+      "retain": false
+    },
+    {
+      "mqtt_topic": "robot/{fleet_id}/{device_id}/presence",
+      "schema_key": "presence",
+      "source_type": "timer",
+      "interval_ms": 3000,
+      "qos": 1,
+      "retain": true
+    },
+    {
+      "mqtt_topic": "robot/{fleet_id}/{device_id}/event",
+      "schema_key": "event",
+      "source_type": "ros_topic",
+      "ros_topic": "/robot_event",
+      "ros_msg_type": "event",
+      "qos": 1,
+      "retain": false
+    },
+    {
+      "mqtt_topic": "robot/{fleet_id}/{device_id}/ack",
+      "schema_key": "ack",
+      "source_type": "generated",
+      "trigger_inbound": "command",
+      "qos": 1,
+      "retain": false
+    },
+    {
+      "mqtt_topic": "robot/{fleet_id}/{device_id}/ack",
+      "schema_key": "ack",
+      "source_type": "ros_topic",
+      "ros_topic": "/command_response",
+      "qos": 1,
+      "retain": false
+    }
+  ],
+  "inbound": [
+    {
+      "mqtt_topic": "server/{fleet_id}/{device_id}/command",
+      "ros_topic": "/command_request",
+      "schema_key": "command",
+      "qos": 1
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "command_type": "move_to",
+  "details": {
+    "target": {
+      "lat": 37.5665,
+      "lon": 126.978,
+      "alt_m": 35.0
+    }
+  }
+}

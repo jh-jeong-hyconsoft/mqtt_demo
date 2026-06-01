@@ -1,0 +1,347 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fleet-mqtt-robot-v0.3.schema.json",
+    "title": "Fleet MQTT Robot ICD Schema v0.3",
+    "description": "v0.3 규격에 따른 로봇-서버 간 통합 메시지 검증 스키마",
+    "type": "object",
+    "required": [
+        "msg_schema_version",
+        "msg_id",
+        "msg_ts_ms",
+        "msg_type",
+        "msg_payload",
+        "device_id",
+        "fleet_id",
+        "connectivity",
+        "session_id"
+    ],
+    "properties": {
+        "msg_schema_version": {
+            "const": 0.3,
+            "description": "스키마 버전"
+        },
+        "msg_id": {
+            "$ref": "#/$defs/uuid_with_prefix_type",
+            "description": "메시지 고유 ID (prefix_uuid 형식)"
+        },
+        "msg_ts_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "메시지 발생 시각 (Unix timestamp ms)"
+        },
+        "msg_type": {
+            "enum": [
+                "presence",
+                "command",
+                "ack",
+                "state",
+                "event"
+            ]
+        },
+        "device_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "로봇 식별 ID"
+        },
+        "fleet_id": {
+            "oneOf": [
+                {
+                    "type": "string",
+                    "minLength": 1
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "description": "현재 배정된 배송 지역 ID (배정 전에는 null)"
+        },
+        "connectivity": {
+            "enum": [
+                "online",
+                "offline"
+            ]
+        },
+        "session_id": {
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/uuid_without_prefix_type"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "description": "네트워크 연결 세션 UUID(MQTT Connect 시마다 변경)"
+        },
+        "msg_payload": {
+            "type": "object"
+        }
+    },
+    "additionalProperties": false,
+    "oneOf": [
+        {
+            "title": "1. Presence Payload",
+            "properties": {
+                "msg_type": {
+                    "const": "presence"
+                },
+                "msg_payload": {
+                    "type": "object",
+                    "required": [
+                        "connectivity_interval_ms"
+                    ],
+                    "properties": {
+                        "connectivity_interval_ms": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "details": {
+                            "type": "object"
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "title": "2. State Payload",
+            "properties": {
+                "msg_type": {
+                    "const": "state"
+                },
+                "msg_payload": {
+                    "type": "object",
+                    "required": [
+                        "health_status",
+                        "battery_voltage_v",
+                        "linear_mps",
+                        "angular_rps",
+                        "pos"
+                    ],
+                    "properties": {
+                        "health_status": {
+                            "enum": [
+                                "healthy",
+                                "unhealthy"
+                            ]
+                        },
+                        "battery_voltage_v": {
+                            "type": "number"
+                        },
+                        "linear_mps": {
+                            "type": "number"
+                        },
+                        "angular_rps": {
+                            "type": "number"
+                        },
+                        "pos": {
+                            "oneOf": [
+                                {"$ref": "#/$defs/gnss_data_type"},
+                                {"type": "null"}
+                              ]
+                        },
+                        "details": {
+                            "type": "object"
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "title": "3. Event Payload",
+            "properties": {
+                "msg_type": {
+                    "const": "event"
+                },
+                "msg_payload": {
+                    "type": "object",
+                    "required": [
+                        "event_type",
+                        "event_result"
+                    ],
+                    "properties": {
+                        "sw_version": {
+                            "type": "string"
+                        },
+                        "event_type": {
+                            "enum": [
+                                "system",
+                                "navigation",
+                                "safety",
+                                "hardware",
+                                "user_interaction"
+                            ]
+                        },
+                        "event_result": {
+                            "enum": [
+                                "info",
+                                "warning",
+                                "error",
+                                "canceled"
+                            ]
+                        },
+                        "details": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "string"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "pos": {
+                                    "$ref": "#/$defs/gnss_data_type"
+                                }
+                            },
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "title": "4. Command Payload",
+            "properties": {
+                "msg_type": {
+                    "const": "command"
+                },
+                "msg_payload": {
+                    "type": "object",
+                    "required": [
+                        "command_id",
+                        "command_type"
+                    ],
+                    "properties": {
+                        "command_id": {
+                            "$ref": "#/$defs/uuid_without_prefix_type"
+                        },
+                        "command_type": {
+                            "enum": [
+                                "init",
+                                "get_position",
+                                "move_to",
+                                "pause",
+                                "resume",
+                                "cancel"
+                            ]
+                        },
+                        "details": {
+                            "type": "object"
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "title": "5. ACK Payload",
+            "properties": {
+                "msg_type": {
+                    "const": "ack"
+                },
+                "msg_payload": {
+                    "type": "object",
+                    "required": [
+                        "command_id",
+                        "command_type",
+                        "command_stage",
+                        "stage_result"
+                    ],
+                    "properties": {
+                        "command_id": {
+                            "$ref": "#/$defs/uuid_without_prefix_type"
+                        },
+                        "command_type": {
+                            "enum": [
+                                "init",
+                                "get_position",
+                                "move_to",
+                                "pause",
+                                "resume",
+                                "cancel"
+                            ]
+                        },
+                        "command_stage": {
+                            "enum": [
+                                "received",
+                                "in_progress",
+                                "completed",
+                                "rejected"
+                            ]
+                        },
+                        "stage_result": {
+                            "enum": [
+                                "success",
+                                "failed_precondition",
+                                "failed_runtime",
+                                "canceled"
+                            ]
+                        },
+                        "details": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "string"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "pos": {
+                                    "$ref": "#/$defs/gnss_data_type"
+                                }
+                            },
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            }
+        }
+    ],
+    "$defs": {
+        "uuid_without_prefix_type": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+        },
+        "uuid_with_prefix_type": {
+            "type": "string",
+            "pattern": "^(presence_|state_|event_|command_|ack_)[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+        },
+        "gnss_data_type": {
+            "type": "object",
+            "required": [
+                "lat",
+                "lon",
+                "alt_m"
+            ],
+            "properties": {
+                "lat": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                },
+                "lon": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                },
+                "alt_m": {
+                    "type": "number"
+                },
+                "fix_ok": {
+                    "type": "boolean"
+                },
+                "fix_age_ms": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "h_acc_m": {
+                    "type": "number",
+                    "minimum": 0
+                }
+            },
+            "additionalProperties": false
+        }
+    }
+}
