@@ -237,6 +237,29 @@ python server_client.py log \
   --device-id robot-1
 ```
 
+원하는 메시지 타입만 구독하려면 `topic` 하위 명령을 사용합니다.
+
+```bash
+python server_client.py log --host localhost topic --event
+```
+
+여러 타입을 같이 볼 수도 있습니다.
+
+```bash
+python server_client.py log \
+  --host localhost \
+  --fleet-id fleet-a \
+  --device-id robot-1 \
+  topic --state --ack
+```
+
+사용 가능한 타입 필터는 다음과 같습니다.
+
+- `--state`
+- `--presence`
+- `--event`
+- `--ack`
+
 로그는 기본적으로 아래 파일에 JSON Lines 형식으로 저장됩니다.
 
 ```text

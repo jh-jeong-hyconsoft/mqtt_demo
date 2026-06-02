@@ -55,10 +55,18 @@ def command_publish_options(topic_config):
     }
 
 
-def robot_log_topics(topic_config, fleet_id="+", device_id="+"):
+LOG_TOPIC_FILTERS = ("state", "presence", "event", "ack")
+
+
+def robot_log_topics(topic_config, fleet_id="+", device_id="+", schema_keys=None):
+    schema_key_filter = set(schema_keys or [])
     topics = []
     seen = set()
     for entry in topic_config.get("outbound", []):
+        schema_key = entry.get("schema_key")
+        if schema_key_filter and schema_key not in schema_key_filter:
+            continue
+
         mqtt_topic = entry.get("mqtt_topic")
         qos = int(entry.get("qos", 0))
         if mqtt_topic:
@@ -68,6 +76,10 @@ def robot_log_topics(topic_config, fleet_id="+", device_id="+"):
                 seen.add(key)
                 topics.append(key)
     return topics
+
+
+def selected_log_schema_keys(args):
+    return [schema_key for schema_key in LOG_TOPIC_FILTERS if getattr(args, schema_key, False)]
 
 
 def normalize_command_payload(payload, command_id=None):
@@ -246,8 +258,16 @@ def publish_command(args):
 def log_messages(args):
     config_dir = Path(args.config_dir)
     topic_config = load_topic_config(config_dir / "topic_config.json")
-    topics = robot_log_topics(topic_config, fleet_id=args.fleet_id, device_id=args.device_id)
+    schema_keys = selected_log_schema_keys(args)
+    topics = robot_log_topics(
+        topic_config,
+        fleet_id=args.fleet_id,
+        device_id=args.device_id,
+        schema_keys=schema_keys,
+    )
     if not topics:
+        if schema_keys:
+            raise ValueError(f"No robot log topics found for: {', '.join(schema_keys)}")
         raise ValueError("No robot log topics found in topic_config.json outbound section")
 
     log_file = Path(args.log_file)
@@ -307,6 +327,17 @@ def build_parser():
     log_parser.add_argument("--device-id", default="+", help="Device ID topic filter; default subscribes to all devices")
     log_parser.add_argument("--log-file", default=str(DEFAULT_LOG_FILE), help="JSON Lines log output path")
     log_parser.set_defaults(func=log_messages)
+
+    log_subparsers = log_parser.add_subparsers(dest="log_command")
+    topic_parser = log_subparsers.add_parser("topic", help="Subscribe only to selected robot message topics")
+    log_filter_group = topic_parser.add_argument_group("topic filters")
+    for schema_key in LOG_TOPIC_FILTERS:
+        log_filter_group.add_argument(
+            f"--{schema_key}",
+            action="store_true",
+            help=f"Subscribe only to robot {schema_key} messages; can be combined with other log filters",
+        )
+    topic_parser.set_defaults(func=log_messages)
 
     return parser
 

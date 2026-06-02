@@ -94,6 +94,36 @@ class ServerClientTests(unittest.TestCase):
             ],
         )
 
+    def test_robot_log_topics_can_filter_by_schema_key(self):
+        topic_config = server_client.load_topic_config(self.config_dir / "topic_config.json")
+
+        topics = server_client.robot_log_topics(
+            topic_config=topic_config,
+            fleet_id="fleet-a",
+            device_id="robot-1",
+            schema_keys=["event"],
+        )
+
+        self.assertEqual(topics, [("robot/fleet-a/robot-1/event", 1)])
+
+    def test_robot_log_topics_can_combine_schema_key_filters(self):
+        topic_config = server_client.load_topic_config(self.config_dir / "topic_config.json")
+
+        topics = server_client.robot_log_topics(
+            topic_config=topic_config,
+            fleet_id="fleet-a",
+            device_id="robot-1",
+            schema_keys=["event", "ack"],
+        )
+
+        self.assertEqual(
+            topics,
+            [
+                ("robot/fleet-a/robot-1/event", 1),
+                ("robot/fleet-a/robot-1/ack", 1),
+            ],
+        )
+
     def test_generated_command_validates_against_schema(self):
         schema = server_client.load_schema(self.config_dir / "schema_v0.3_validation.json")
         payload = {
@@ -163,6 +193,25 @@ class ServerClientTests(unittest.TestCase):
         self.assertEqual(args.username, "server")
         self.assertEqual(args.password, "1234")
         self.assertEqual(args.ca_file, str(server_client.DEFAULT_CA_FILE))
+
+    def test_parser_supports_log_topic_event_filter(self):
+        parser = server_client.build_parser()
+
+        args = parser.parse_args(["log", "--host", "localhost", "topic", "--event"])
+
+        self.assertEqual(args.command, "log")
+        self.assertEqual(args.log_command, "topic")
+        self.assertTrue(args.event)
+        self.assertEqual(server_client.selected_log_schema_keys(args), ["event"])
+
+    def test_parser_log_without_topic_filter_selects_all_topics(self):
+        parser = server_client.build_parser()
+
+        args = parser.parse_args(["log", "--host", "localhost"])
+
+        self.assertEqual(args.command, "log")
+        self.assertIsNone(args.log_command)
+        self.assertEqual(server_client.selected_log_schema_keys(args), [])
 
 
 if __name__ == "__main__":
